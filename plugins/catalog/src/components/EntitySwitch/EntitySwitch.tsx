@@ -23,7 +23,7 @@ import {
   useElementFilter,
   ApiHolder,
 } from '@backstage/core-plugin-api';
-import useAsync from 'react-use/lib/useAsync';
+import useAsync from 'react-use/esm/useAsync';
 
 const ENTITY_SWITCH_KEY = 'core.backstage.entitySwitch';
 
@@ -64,7 +64,7 @@ export interface EntitySwitchProps {
 
 /** @public */
 export const EntitySwitch = (props: EntitySwitchProps) => {
-  const { entity } = useAsyncEntity();
+  const { entity, loading } = useAsyncEntity();
   const apis = useApiHolder();
 
   const results = useElementFilter(
@@ -77,14 +77,21 @@ export const EntitySwitch = (props: EntitySwitchProps) => {
         })
         .getElements()
         .flatMap<SwitchCaseResult>((element: ReactElement) => {
-          // If the entity is missing or there is an error, render nothing
-          if (!entity) {
+          if (loading && !entity) {
             return [];
           }
 
           const { if: condition, children: elementsChildren } =
             element.props as EntitySwitchCase;
 
+          if (!entity) {
+            return [
+              {
+                if: condition === undefined,
+                children: elementsChildren,
+              },
+            ];
+          }
           return [
             {
               if: condition?.(entity, { apis }),
@@ -92,7 +99,7 @@ export const EntitySwitch = (props: EntitySwitchProps) => {
             },
           ];
         }),
-    [apis, entity],
+    [apis, entity, loading],
   );
 
   const hasAsyncCases = results.some(

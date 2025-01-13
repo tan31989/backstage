@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { DatabaseManager, getVoidLogger } from '@backstage/backend-common';
 import {
   Entity,
   EntityPolicies,
@@ -31,10 +30,8 @@ import {
   processingResult,
 } from '@backstage/plugin-catalog-node';
 import { PermissionEvaluator } from '@backstage/plugin-permission-common';
-import { JsonObject } from '@backstage/types';
 import { createHash } from 'crypto';
 import { Knex } from 'knex';
-import { Logger } from 'winston';
 import { EntitiesCatalog } from '../catalog/types';
 import { DefaultCatalogDatabase } from '../database/DefaultCatalogDatabase';
 import { DefaultProcessingDatabase } from '../database/DefaultProcessingDatabase';
@@ -42,20 +39,24 @@ import { DefaultProviderDatabase } from '../database/DefaultProviderDatabase';
 import { applyDatabaseMigrations } from '../database/migrations';
 import { RefreshStateItem } from '../database/types';
 import { DefaultCatalogRulesEnforcer } from '../ingestion/CatalogRules';
-import { defaultEntityDataParser } from '../modules/util/parse';
+import { defaultEntityDataParser } from '../util/parse';
 import {
   DefaultCatalogProcessingEngine,
   ProgressTracker,
 } from '../processing/DefaultCatalogProcessingEngine';
 import { DefaultCatalogProcessingOrchestrator } from '../processing/DefaultCatalogProcessingOrchestrator';
 import { connectEntityProviders } from '../processing/connectEntityProviders';
-import { CatalogProcessingEngine } from '../processing/types';
+import { CatalogProcessingEngine } from '../processing';
 import { DefaultEntitiesCatalog } from '../service/DefaultEntitiesCatalog';
 import { DefaultRefreshService } from '../service/DefaultRefreshService';
 import { RefreshOptions, RefreshService } from '../service/types';
-import { Stitcher } from '../stitching/Stitcher';
+import { DefaultStitcher } from '../stitching/DefaultStitcher';
+import { mockServices } from '@backstage/backend-test-utils';
+import { LoggerService } from '@backstage/backend-plugin-api';
+import { DatabaseManager } from '@backstage/backend-common';
+import { entitiesResponseToObjects } from '../service/response';
 
-const voidLogger = getVoidLogger();
+const voidLogger = mockServices.logger.mock();
 
 type ProgressTrackerWithErrorReports = ProgressTracker & {
   reportError(unprocessedEntity: Entity, errors: Error[]): void;
@@ -197,8 +198,8 @@ class TestHarness {
   readonly #proxyProgressTracker: ProxyProgressTracker;
 
   static async create(options?: {
-    config?: JsonObject;
-    logger?: Logger;
+    disableRelationsCompatibility?: boolean;
+    logger?: LoggerService;
     db?: Knex;
     permissions?: PermissionEvaluator;
     processEntity?(
@@ -207,17 +208,20 @@ class TestHarness {
       emit: CatalogProcessorEmit,
     ): Promise<Entity>;
   }) {
-    const config = new ConfigReader(
-      options?.config ?? {
-        backend: {
-          database: {
-            client: 'better-sqlite3',
-            connection: ':memory:',
-          },
+    const config = new ConfigReader({
+      backend: {
+        database: {
+          client: 'better-sqlite3',
+          connection: ':memory:',
         },
       },
-    );
-    const logger = options?.logger ?? getVoidLogger();
+      catalog: {
+        stitchingStrategy: {
+          mode: 'immediate',
+        },
+      },
+    });
+    const logger = options?.logger ?? mockServices.logger.mock();
     const db =
       options?.db ??
       (await DatabaseManager.fromConfig(config, { logger })
@@ -268,11 +272,12 @@ class TestHarness {
       policy: EntityPolicies.allOf([]),
       legacySingleProcessorValidation: false,
     });
-    const stitcher = new Stitcher(db, logger);
+    const stitcher = DefaultStitcher.fromConfig(config, { knex: db, logger });
     const catalog = new DefaultEntitiesCatalog({
       database: db,
       logger,
       stitcher,
+      disableRelationsCompatibility: options?.disableRelationsCompatibility,
     });
     const proxyProgressTracker = new ProxyProgressTracker(
       new NoopProgressTracker(),
@@ -282,6 +287,7 @@ class TestHarness {
       config: new ConfigReader({}),
       logger,
       processingDatabase,
+      knex: db,
       orchestrator,
       stitcher,
       createHash: () => createHash('sha1'),
@@ -300,7 +306,16 @@ class TestHarness {
 
     return new TestHarness(
       catalog,
-      engine,
+      {
+        async start() {
+          await engine.start();
+          await stitcher.start();
+        },
+        async stop() {
+          await engine.stop();
+          await stitcher.stop();
+        },
+      },
       refresh,
       provider,
       proxyProgressTracker,
@@ -349,7 +364,12 @@ class TestHarness {
 
   async getOutputEntities(): Promise<Record<string, Entity>> {
     const { entities } = await this.#catalog.entities();
-    return Object.fromEntries(entities.map(e => [stringifyEntityRef(e), e]));
+    return Object.fromEntries(
+      entitiesResponseToObjects(entities).map(e => [
+        stringifyEntityRef(e!),
+        e!,
+      ]),
+    );
   }
 
   async refresh(options: RefreshOptions) {
@@ -426,7 +446,6 @@ describe('Catalog Backend Integration', () => {
                 cause: {
                   name: 'Error',
                   message: 'NOPE',
-                  stack: expect.stringMatching(/^Error: NOPE/),
                 },
               },
             },
@@ -764,6 +783,59 @@ describe('Catalog Backend Integration', () => {
           "Invalid location ref 'url:javascript:bad()', target is a javascript: URL",
         ),
       ],
+    });
+  });
+
+  it('should return valid responses in raw JSON mode', async () => {
+    const harness = await TestHarness.create({
+      disableRelationsCompatibility: true,
+    });
+
+    const entityA = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'a',
+        annotations: {
+          'backstage.io/managed-by-location': 'url:.',
+          'backstage.io/managed-by-origin-location': 'url:.',
+        },
+      },
+    };
+    const entityB = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'b',
+        annotations: {
+          'backstage.io/managed-by-location': 'url:.',
+          'backstage.io/managed-by-origin-location': 'url:.',
+        },
+      },
+    };
+
+    await harness.setInputEntities([entityA, entityB]);
+    await expect(harness.process()).resolves.toEqual({});
+
+    await expect(harness.getOutputEntities()).resolves.toEqual({
+      'component:default/a': {
+        ...entityA,
+        metadata: {
+          ...entityA.metadata,
+          etag: expect.any(String),
+          uid: expect.any(String),
+        },
+        relations: [],
+      },
+      'component:default/b': {
+        ...entityB,
+        metadata: {
+          ...entityB.metadata,
+          etag: expect.any(String),
+          uid: expect.any(String),
+        },
+        relations: [],
+      },
     });
   });
 });

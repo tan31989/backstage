@@ -32,27 +32,6 @@ const HomePage = () => {
           <BannerSectionGrid
             header={
               <>
-                <div
-                  className={clsx(
-                    'card',
-                    'padding--md',
-                    homeStyles.newsletterBanner,
-                  )}
-                >
-                  <div className="text--left bannerContent">
-                    CFP is now open for BackstageCon 2023 🚀
-                  </div>
-                  <div>
-                    <a
-                      className="button button--outline button--secondary"
-                      href="https://bit.ly/BackstageConCFP"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      Submit a talk
-                    </a>
-                  </div>
-                </div>
                 {!hiddenNewsletterBanner && (
                   <div
                     className={clsx(
@@ -95,7 +74,9 @@ const HomePage = () => {
           >
             <ContentBlock
               className={homeStyles.openPlatformBanner}
-              title={<h1> An open platform for building developer portals</h1>}
+              title={
+                <h1>An open source framework for building developer portals</h1>
+              }
               actionButtons={[
                 {
                   link: 'https://github.com/backstage/backstage#getting-started',
@@ -116,10 +97,12 @@ const HomePage = () => {
               <img
                 className="laptopSvg"
                 src={`${siteConfig.baseUrl}img/laptop.svg`}
+                alt="Illustration of a laptop"
               />
               <img
                 className="laptopScreenGif"
                 src={`${siteConfig.baseUrl}animations/backstage-logos-hero-8.gif`}
+                alt="Animated Backstage Logo"
               />
             </div>
           </BannerSectionGrid>

@@ -21,10 +21,12 @@ describe('compileConfigSchemas', () => {
     const validate = compileConfigSchemas([
       {
         path: 'a',
+        packageName: 'a',
         value: { type: 'object', properties: { a: { type: 'string' } } },
       },
       {
         path: 'b',
+        packageName: 'b',
         value: { type: 'object', properties: { b: { type: 'number' } } },
       },
     ]);
@@ -39,6 +41,7 @@ describe('compileConfigSchemas', () => {
         },
       ],
       visibilityByDataPath: new Map(),
+      deepVisibilityByDataPath: new Map(),
       visibilityBySchemaPath: new Map(),
       deprecationByDataPath: new Map(),
     });
@@ -53,6 +56,7 @@ describe('compileConfigSchemas', () => {
         },
       ],
       visibilityByDataPath: new Map(),
+      deepVisibilityByDataPath: new Map(),
       visibilityBySchemaPath: new Map(),
       deprecationByDataPath: new Map(),
     });
@@ -62,6 +66,7 @@ describe('compileConfigSchemas', () => {
     const validate = compileConfigSchemas([
       {
         path: 'a1',
+        packageName: 'a1',
         value: {
           type: 'object',
           properties: {
@@ -78,6 +83,7 @@ describe('compileConfigSchemas', () => {
       },
       {
         path: 'a2',
+        packageName: 'a2',
         value: {
           type: 'object',
           properties: {
@@ -106,6 +112,7 @@ describe('compileConfigSchemas', () => {
           '/d/0': 'frontend',
         }),
       ),
+      deepVisibilityByDataPath: new Map(),
       visibilityBySchemaPath: new Map(
         Object.entries({
           '/properties/a': 'frontend',
@@ -123,6 +130,7 @@ describe('compileConfigSchemas', () => {
       compileConfigSchemas([
         {
           path: 'a1',
+          packageName: 'a1',
           value: {
             type: 'object',
             properties: { a: { type: 'string', visibility: 'frontend' } },
@@ -130,6 +138,7 @@ describe('compileConfigSchemas', () => {
         },
         {
           path: 'a2',
+          packageName: 'a2',
           value: {
             type: 'object',
             properties: { a: { type: 'string', visibility: 'secret' } },
@@ -145,6 +154,7 @@ describe('compileConfigSchemas', () => {
     const validate = compileConfigSchemas([
       {
         path: 'a1',
+        packageName: 'a1',
         value: {
           type: 'object',
           properties: {
@@ -166,6 +176,7 @@ describe('compileConfigSchemas', () => {
           '/b': 'deprecation reason for b',
         }),
       ),
+      deepVisibilityByDataPath: new Map(),
       visibilityByDataPath: new Map(),
       visibilityBySchemaPath: new Map(),
     });
@@ -175,6 +186,7 @@ describe('compileConfigSchemas', () => {
     const validate = compileConfigSchemas([
       {
         path: 'a1',
+        packageName: 'a1',
         value: {
           type: 'object',
           properties: {
@@ -221,6 +233,7 @@ describe('compileConfigSchemas', () => {
           '//circleci/api/headers/Circle-Token': 'secret',
         }),
       ),
+      deepVisibilityByDataPath: new Map(),
       visibilityBySchemaPath: new Map(
         Object.entries({
           '/properties//circleci/api/properties/headers/properties/Circle-Token':
@@ -237,6 +250,7 @@ describe('deepVisibility', () => {
     const validate = compileConfigSchemas([
       {
         path: 'a1',
+        packageName: 'a1',
         value: {
           type: 'object',
           properties: {
@@ -252,6 +266,7 @@ describe('deepVisibility', () => {
       },
       {
         path: 'a2',
+        packageName: 'a2',
         value: {
           type: 'object',
           deepVisibility: 'secret',
@@ -277,18 +292,18 @@ describe('deepVisibility', () => {
     ).toEqual({
       visibilityByDataPath: new Map(
         Object.entries({
-          '': 'secret',
           '/b': 'secret',
-          '/d': 'secret',
-          '/d/0': 'secret',
+        }),
+      ),
+      deepVisibilityByDataPath: new Map(
+        Object.entries({
+          '': 'secret',
         }),
       ),
       visibilityBySchemaPath: new Map(
         Object.entries({
           '': 'secret',
           '/properties/b': 'secret',
-          '/properties/d': 'secret',
-          '/properties/d/items': 'secret',
         }),
       ),
       deprecationByDataPath: new Map(),
@@ -300,6 +315,7 @@ describe('deepVisibility', () => {
       compileConfigSchemas([
         {
           path: 'a1',
+          packageName: 'a1',
           value: {
             type: 'object',
             properties: {
@@ -315,6 +331,7 @@ describe('deepVisibility', () => {
         },
         {
           path: 'a2',
+          packageName: 'a2',
           value: {
             type: 'object',
             deepVisibility: 'secret',
@@ -340,27 +357,8 @@ describe('deepVisibility', () => {
     expect(() =>
       compileConfigSchemas([
         {
-          path: 'a1',
-          value: {
-            type: 'object',
-            properties: {
-              a: {
-                type: 'object',
-                properties: {
-                  a: { type: 'string' },
-                },
-              },
-              b: { type: 'string', visibility: 'backend' },
-              c: { type: 'string' },
-              d: {
-                type: 'array',
-                items: { type: 'string' },
-              },
-            },
-          },
-        },
-        {
           path: 'a2',
+          packageName: 'a2',
           value: {
             type: 'object',
             deepVisibility: 'secret',
@@ -368,7 +366,7 @@ describe('deepVisibility', () => {
               a: {
                 type: 'object',
                 properties: {
-                  a: { type: 'string', visibility: 'frontend' },
+                  a: { type: 'string', deepVisibility: 'frontend' },
                 },
               },
               b: { type: 'string', visibility: 'secret' },
@@ -386,11 +384,35 @@ describe('deepVisibility', () => {
     );
   });
 
+  it('should throw when the same schema node has a conflicting deepVisibility', () => {
+    expect(() =>
+      compileConfigSchemas([
+        {
+          path: 'a2',
+          packageName: 'a2',
+          value: {
+            type: 'object',
+            properties: {
+              a: {
+                type: 'string',
+                deepVisibility: 'secret',
+                visibility: 'frontend',
+              },
+            },
+          },
+        },
+      ]),
+    ).toThrow(
+      `Config schema visibility is both 'frontend' and 'secret' for /properties/a`,
+    );
+  });
+
   it('should throw when ancestor and children have a different deepVisibility', () => {
     expect(() =>
       compileConfigSchemas([
         {
           path: 'a1',
+          packageName: 'a1',
           value: {
             type: 'object',
             properties: {
@@ -411,6 +433,7 @@ describe('deepVisibility', () => {
         },
         {
           path: 'a2',
+          packageName: 'a2',
           value: {
             type: 'object',
             deepVisibility: 'secret',

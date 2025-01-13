@@ -19,7 +19,7 @@ import {
   AsyncEntityProvider,
   EntityProvider,
 } from '@backstage/plugin-catalog-react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import React, { useEffect } from 'react';
 import { isKind } from './conditions';
 import { EntitySwitch } from './EntitySwitch';
@@ -55,6 +55,50 @@ describe('EntitySwitch', () => {
     );
 
     expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.queryByText('B')).not.toBeInTheDocument();
+    expect(screen.queryByText('C')).not.toBeInTheDocument();
+  });
+
+  it('should render the default case if entity is not found', () => {
+    const content = (
+      <EntitySwitch>
+        <EntitySwitch.Case if={isKind('component')} children="A" />
+        <EntitySwitch.Case if={isKind('api')} children="B" />
+        <EntitySwitch.Case children="C" />
+      </EntitySwitch>
+    );
+
+    render(
+      <Wrapper>
+        <AsyncEntityProvider entity={undefined} loading={false}>
+          {content}
+        </AsyncEntityProvider>
+      </Wrapper>,
+    );
+
+    expect(screen.queryByText('A')).not.toBeInTheDocument();
+    expect(screen.queryByText('B')).not.toBeInTheDocument();
+    expect(screen.queryByText('C')).toBeInTheDocument();
+  });
+
+  it(`shouldn't render any children if entity is loading and no entity exists in the context`, () => {
+    const content = (
+      <EntitySwitch>
+        <EntitySwitch.Case if={isKind('component')} children="A" />
+        <EntitySwitch.Case if={isKind('api')} children="B" />
+        <EntitySwitch.Case children="C" />
+      </EntitySwitch>
+    );
+
+    render(
+      <Wrapper>
+        <AsyncEntityProvider entity={undefined} loading>
+          {content}
+        </AsyncEntityProvider>
+      </Wrapper>,
+    );
+
+    expect(screen.queryByText('A')).not.toBeInTheDocument();
     expect(screen.queryByText('B')).not.toBeInTheDocument();
     expect(screen.queryByText('C')).not.toBeInTheDocument();
   });
@@ -170,7 +214,7 @@ describe('EntitySwitch', () => {
 
     expect(screen.queryByText('A')).not.toBeInTheDocument();
     expect(screen.queryByText('B')).not.toBeInTheDocument();
-    expect(screen.queryByText('C')).not.toBeInTheDocument();
+    expect(screen.queryByText('C')).toBeInTheDocument();
   });
 
   it('should switch child when filters switch', () => {
@@ -473,9 +517,7 @@ describe('EntitySwitch', () => {
       </Wrapper>,
     );
 
-    await waitFor(() => expect(shouldRender).toHaveBeenCalled());
-
-    expect(screen.getByText('C')).toBeInTheDocument();
+    await expect(screen.findByText('C')).resolves.toBeInTheDocument();
     expect(screen.queryByText('A')).not.toBeInTheDocument();
     expect(screen.queryByText('B')).not.toBeInTheDocument();
   });

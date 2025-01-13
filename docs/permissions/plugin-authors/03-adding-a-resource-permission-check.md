@@ -4,7 +4,11 @@ title: 3. Adding a resource permission check
 description: Explains how to add a resource permission check to a Backstage plugin
 ---
 
-When performing updates (or other operations) on specific [resources](../concepts.md#resources-and-rules), the permissions framework allows for the decision to be based on characteristics of the resource itself. This means that it's possible to write policies that (for example) allow the operation for users that own a resource, and deny the operation otherwise.
+:::info
+This documentation is written for [the new backend system](../../backend-system/index.md) which is the default since Backstage [version 1.24](../../releases/v1.24.0.md). If you are still on the old backend system, you may want to read [its own article](./03-adding-a-resource-permission-check--old.md) instead, and [consider migrating](../../backend-system/building-backends/08-migrating.md)!
+:::
+
+When performing updates (or other operations) on specific [resources](../../references/glossary.md#resource-permission-plugin), the permissions framework allows for the decision to be based on characteristics of the resource itself. This means that it's possible to write policies that (for example) allow the operation for users that own a resource, and deny the operation otherwise.
 
 ## Creating the update permission
 
@@ -68,9 +72,7 @@ const permissionIntegrationRouter = createPermissionIntegrationRouter({
 
 router.put('/todos', async (req, res) => {
   /* highlight-add-start */
-  const token = getBearerTokenFromAuthorizationHeader(
-    req.header('authorization'),
-  );
+  const credentials = await httpAuth.credentials(req, { allow: ['user'] });
   /* highlight-add-end */
 
   if (!isTodoUpdateRequest(req.body)) {
@@ -80,9 +82,7 @@ router.put('/todos', async (req, res) => {
   const decision = (
     await permissions.authorize(
       [{ permission: todoListUpdatePermission, resourceRef: req.body.id }],
-      {
-        token,
-      },
+      { credentials },
     )
   )[0];
 
@@ -144,7 +144,11 @@ export const rules = { isOwner };
 
 `makeCreatePermissionRule` is a helper used to ensure that rules created for this plugin use consistent types for the resource and query.
 
-> Note: To support custom rules defined by Backstage integrators, you must export `createTodoListPermissionRule` from the backend package and provide some way for custom rules to be passed in before the backend starts, likely via `createRouter`.
+:::note Note
+
+To support custom rules defined by Backstage integrators, you must export `createTodoListPermissionRule` from the backend package and provide some way for custom rules to be passed in before the backend starts, likely via `extension point`.
+
+:::
 
 We have created a new `isOwner` rule, which is going to be automatically used by the permission framework whenever a conditional response is returned in response to an authorized request with an attached `resourceRef`.
 Specifically, the `apply` function is used to understand whether the passed resource should be authorized or not.
@@ -233,12 +237,12 @@ Let's go back to the permission policy's handle function and try to authorize ou
 
 ```ts title="packages/backend/src/plugins/permission.ts"
 import {
-  BackstageIdentityResponse,
   IdentityClient
 } from '@backstage/plugin-auth-node';
 import {
   PermissionPolicy,
   PolicyQuery,
+  PolicyQueryUser,
 } from '@backstage/plugin-permission-node';
 import { isPermission } from '@backstage/plugin-permission-common';
 /* highlight-remove-next-line */
@@ -258,9 +262,9 @@ import {
 async handle(
   request: PolicyQuery,
   /* highlight-remove-next-line */
-  _user?: BackstageIdentityResponse,
+  _user?: PolicyQueryUser,
   /* highlight-add-next-line */
-  user?: BackstageIdentityResponse,
+  user?: PolicyQueryUser,
 ): Promise<PolicyDecision> {
   if (isPermission(request.permission, todoListCreatePermission)) {
     return {
@@ -272,7 +276,7 @@ async handle(
     return createTodoListConditionalDecision(
       request.permission,
       todoListConditions.isOwner({
-        userId: user?.identity.userEntityRef ?? '',
+        userId: user?.info.userEntityRef ?? '',
       }),
     );
   }

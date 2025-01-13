@@ -15,7 +15,6 @@
  */
 
 import { Config } from '@backstage/config';
-import { UrlReader } from '@backstage/backend-common';
 import { ScmIntegrations } from '@backstage/integration';
 import {
   createTemplateAction,
@@ -33,13 +32,15 @@ import {
   createConfluenceVariables,
   getConfluenceConfig,
 } from './helpers';
+import { examples } from './confluenceToMarkdown.examples';
+import { UrlReaderService } from '@backstage/backend-plugin-api';
 
 /**
  * @public
  */
 
 export const createConfluenceToMarkdownAction = (options: {
-  reader: UrlReader;
+  reader: UrlReaderService;
   integrations: ScmIntegrations;
   config: Config;
 }) => {
@@ -53,6 +54,8 @@ export const createConfluenceToMarkdownAction = (options: {
     repoUrl: string;
   }>({
     id: 'confluence:transform:markdown',
+    description: 'Transforms Confluence content to Markdown',
+    examples,
     schema: {
       input: {
         properties: {

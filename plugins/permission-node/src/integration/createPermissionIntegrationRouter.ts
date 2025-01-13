@@ -19,11 +19,12 @@ import Router from 'express-promise-router';
 import { z } from 'zod';
 import zodToJsonSchema from 'zod-to-json-schema';
 import { InputError } from '@backstage/errors';
-import { errorHandler } from '@backstage/backend-common';
 import {
   AuthorizeResult,
   DefinitivePolicyDecision,
   IdentifiedPermissionMessage,
+  MetadataResponse as CommonMetadataResponse,
+  MetadataResponseSerializedRule as CommonMetadataResponseSerializedRule,
   Permission,
   PermissionCondition,
   PermissionCriteria,
@@ -109,23 +110,18 @@ export type ApplyConditionsResponse = {
  * converted from a ZodSchema to a JsonSchema.
  *
  * @public
+ * @deprecated Please import from `@backstage/plugin-permission-common` instead.
  */
-export type MetadataResponseSerializedRule = {
-  name: string;
-  description: string;
-  resourceType: string;
-  paramsSchema?: ReturnType<typeof zodToJsonSchema>;
-};
+export type MetadataResponseSerializedRule =
+  CommonMetadataResponseSerializedRule;
 
 /**
  * Response type for the .metadata endpoint.
  *
  * @public
+ * @deprecated Please import from `@backstage/plugin-permission-common` instead.
  */
-export type MetadataResponse = {
-  permissions?: Permission[];
-  rules: MetadataResponseSerializedRule[];
-};
+export type MetadataResponse = CommonMetadataResponse;
 
 const applyConditions = <TResourceType extends string, TResource>(
   criteria: PermissionCriteria<PermissionCondition<TResourceType>>,
@@ -162,7 +158,6 @@ const applyConditions = <TResourceType extends string, TResource>(
 };
 
 /**
-
  * Takes some permission conditions and returns a definitive authorization result
  * on the resource to which they apply.
  *
@@ -332,11 +327,16 @@ export function createPermissionIntegrationRouter<
         >
       ).rules || [],
   );
-  const allPermissions = [
-    ...((options as { permissions: Permission[] }).permissions || []),
-    ...(optionsWithResources.resources?.flatMap(o => o.permissions || []) ||
-      []),
-  ];
+
+  const allPermissions = Array.from(
+    new Map(
+      [
+        ...((options as { permissions: Permission[] }).permissions || []),
+        ...(optionsWithResources.resources?.flatMap(o => o.permissions || []) ||
+          []),
+      ].map(i => [i.name, i]),
+    ).values(),
+  );
 
   const allResourceTypes = allOptions.reduce((acc, option) => {
     if (
@@ -481,8 +481,6 @@ export function createPermissionIntegrationRouter<
       });
     },
   );
-
-  router.use(errorHandler());
 
   return router;
 }

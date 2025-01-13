@@ -15,9 +15,11 @@
  */
 
 export * from './CatalogFilterLayout';
+export * from './DefaultFilters';
 export * from './EntityKindPicker';
 export * from './EntityLifecyclePicker';
 export * from './EntityOwnerPicker';
+export * from './EntityDisplayName';
 export * from './EntityRefLink';
 export * from './EntityPeekAheadPopover';
 export * from './EntitySearchBar';
@@ -30,3 +32,5 @@ export * from './UnregisterEntityDialog';
 export * from './UserListPicker';
 export * from './EntityProcessingStatusPicker';
 export * from './EntityNamespacePicker';
+export * from './EntityAutocompletePicker';
+export * from './MissingAnnotationEmptyState';

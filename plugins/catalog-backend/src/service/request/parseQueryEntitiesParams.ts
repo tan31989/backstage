@@ -20,20 +20,19 @@ import {
   QueryEntitiesRequest,
 } from '../../catalog/types';
 import { decodeCursor } from '../util';
-import { parseStringParam } from './common';
 import { parseEntityFilterParams } from './parseEntityFilterParams';
 import { parseEntityOrderFieldParams } from './parseEntityOrderFieldParams';
 import { parseEntityTransformParams } from './parseEntityTransformParams';
-import { parseFullTextFilterFields } from './parseFullTextFilterFields';
+import { GetEntitiesByQuery } from '../../schema/openapi';
 
 export function parseQueryEntitiesParams(
-  params: Record<string, unknown>,
-): Omit<QueryEntitiesRequest, 'authorizationToken' | 'limit'> {
+  params: GetEntitiesByQuery['query'],
+): Omit<QueryEntitiesRequest, 'credentials' | 'limit'> {
   const fields = parseEntityTransformParams(params);
-  const cursor = parseStringParam(params.cursor, 'cursor');
-  if (cursor) {
-    const decodedCursor = decodeCursor(cursor);
-    const response: Omit<QueryEntitiesCursorRequest, 'authorizationToken'> = {
+
+  if (params.cursor) {
+    const decodedCursor = decodeCursor(params.cursor);
+    const response: Omit<QueryEntitiesCursorRequest, 'credentials'> = {
       cursor: decodedCursor,
       fields,
     };
@@ -41,21 +40,15 @@ export function parseQueryEntitiesParams(
   }
 
   const filter = parseEntityFilterParams(params);
-  const fullTextFilterTerm = parseStringParam(
-    params.fullTextFilterTerm,
-    'fullTextFilterTerm',
-  );
-  const fullTextFilterFields = parseFullTextFilterFields(params);
-
   const orderFields = parseEntityOrderFieldParams(params);
 
-  const response: Omit<QueryEntitiesInitialRequest, 'authorizationToken'> = {
+  const response: Omit<QueryEntitiesInitialRequest, 'credentials'> = {
     fields,
     filter,
     orderFields,
     fullTextFilter: {
-      term: fullTextFilterTerm || '',
-      fields: fullTextFilterFields,
+      term: params.fullTextFilterTerm || '',
+      fields: params.fullTextFilterFields,
     },
   };
 

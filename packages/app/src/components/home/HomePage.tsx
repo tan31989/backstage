@@ -15,22 +15,21 @@
  */
 
 import {
-  HomePageRandomJoke,
-  WelcomeTitle,
-  HeaderWorldClock,
   ClockConfig,
-  HomePageStarredEntities,
   CustomHomepageGrid,
-  HomePageToolkit,
+  HeaderWorldClock,
   HomePageCompanyLogo,
+  HomePageRandomJoke,
+  HomePageStarredEntities,
+  HomePageToolkit,
+  HomePageTopVisited,
+  HomePageRecentlyVisited,
+  WelcomeTitle,
 } from '@backstage/plugin-home';
 import { Content, Header, Page } from '@backstage/core-components';
 import { HomePageSearchBar } from '@backstage/plugin-search';
-import { HomePageCalendar } from '@backstage/plugin-gcalendar';
-import { MicrosoftCalendarCard } from '@backstage/plugin-microsoft-calendar';
 import React from 'react';
 import HomeIcon from '@material-ui/icons/Home';
-import { HomePagePagerDutyCard } from '@backstage/plugin-pagerduty';
 
 const clockConfigs: ClockConfig[] = [
   {
@@ -64,6 +63,9 @@ const defaultConfig = [
     y: 0,
     width: 12,
     height: 1,
+    movable: false,
+    resizable: false,
+    deletable: false,
   },
   {
     component: 'WelcomeTitle',
@@ -77,7 +79,7 @@ const defaultConfig = [
     x: 0,
     y: 2,
     width: 12,
-    height: 1,
+    height: 2,
   },
 ];
 
@@ -93,9 +95,6 @@ export const homePage = (
       <CustomHomepageGrid config={defaultConfig}>
         <HomePageSearchBar />
         <HomePageRandomJoke />
-        <HomePageCalendar />
-        <HomePagePagerDutyCard name="Rota" />
-        <MicrosoftCalendarCard />
         <HomePageStarredEntities />
         <HomePageCompanyLogo />
         <WelcomeTitle />
@@ -108,6 +107,8 @@ export const homePage = (
             },
           ]}
         />
+        <HomePageTopVisited />
+        <HomePageRecentlyVisited />
       </CustomHomepageGrid>
     </Content>
   </Page>

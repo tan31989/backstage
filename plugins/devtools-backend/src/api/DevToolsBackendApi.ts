@@ -17,17 +17,14 @@
 import { Config, ConfigReader } from '@backstage/config';
 import { loadConfigSchema } from '@backstage/config-loader';
 import {
-  PackageDependency,
-  DevToolsInfo,
-  ExternalDependency,
-  Endpoint,
-  ExternalDependencyStatus,
   ConfigInfo,
+  DevToolsInfo,
+  Endpoint,
+  ExternalDependency,
+  ExternalDependencyStatus,
+  PackageDependency,
 } from '@backstage/plugin-devtools-common';
-
 import { JsonObject } from '@backstage/types';
-import { Logger } from 'winston';
-import fetch from 'node-fetch';
 import { findPaths } from '@backstage/cli-common';
 import { getPackages } from '@manypkg/get-packages';
 import ping from 'ping';
@@ -36,11 +33,12 @@ import fs from 'fs-extra';
 import { Lockfile } from '../util/Lockfile';
 import { memoize } from 'lodash';
 import { assertError } from '@backstage/errors';
+import { LoggerService } from '@backstage/backend-plugin-api';
 
 /** @public */
 export class DevToolsBackendApi {
   public constructor(
-    private readonly logger: Logger,
+    private readonly logger: LoggerService,
     private readonly config: Config,
   ) {}
 
@@ -204,7 +202,16 @@ export class DevToolsBackendApi {
   }
 
   public async listInfo(): Promise<DevToolsInfo> {
-    const operatingSystem = `${os.type} ${os.release} - ${os.platform}/${os.arch}`;
+    const operatingSystem = `${os.hostname()}: ${os.type} ${os.release} - ${
+      os.platform
+    }/${os.arch}`;
+    const usedMem = Math.floor((os.totalmem() - os.freemem()) / (1024 * 1024));
+    const resources = `Memory: ${usedMem}/${Math.floor(
+      os.totalmem() / (1024 * 1024),
+    )}MB - Load: ${os
+      .loadavg()
+      .map(v => v.toFixed(2))
+      .join('/')}`;
     const nodeJsVersion = process.version;
 
     /* eslint-disable-next-line no-restricted-syntax */
@@ -238,6 +245,7 @@ export class DevToolsBackendApi {
 
     const info: DevToolsInfo = {
       operatingSystem: operatingSystem ?? 'N/A',
+      resourceUtilization: resources ?? 'N/A',
       nodeJsVersion: nodeJsVersion ?? 'N/A',
       backstageVersion:
         backstageJson && backstageJson.version ? backstageJson.version : 'N/A',

@@ -29,6 +29,10 @@ export type ConfigSchemaPackageEntry = {
    * The relative path that the configuration schema was discovered at.
    */
   path: string;
+  /**
+   * The package name for the package this belongs to
+   */
+  packageName: string;
 };
 
 /**
@@ -76,6 +80,13 @@ type ValidationResult = {
   visibilityByDataPath: Map<string, ConfigVisibility>;
 
   /**
+   * The configuration deep visibilities that were discovered during validation.
+   *
+   * The path in the key uses the form `/<key>/<sub-key>/<array-index>/<leaf-key>`
+   */
+  deepVisibilityByDataPath: Map<string, ConfigVisibility>;
+
+  /**
    * The configuration visibilities that were discovered during validation.
    *
    * The path in the key uses the form `/properties/<key>/items/additionalProperties/<leaf-key>`
@@ -98,11 +109,22 @@ export type ValidationFunc = (configs: AppConfig[]) => ValidationResult;
 /**
  * A function used to transform primitive configuration values.
  *
+ * The "path" in the context is a JQ-style path to the current value from
+ * within the original object passed to filterByVisibility().
+ * For example, "field.list[2]" would refer to:
+ * \{
+ *   field: [
+ *     "foo",
+ *     "bar",
+ *     "baz" -- this one
+ *   ]
+ * \}
+ *
  * @public
  */
 export type TransformFunc<T extends number | string | boolean> = (
   value: T,
-  context: { visibility: ConfigVisibility },
+  context: { visibility: ConfigVisibility; path: string },
 ) => T | undefined;
 
 /**

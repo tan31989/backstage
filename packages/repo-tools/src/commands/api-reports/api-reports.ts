@@ -16,11 +16,11 @@
 
 import { OptionValues } from 'commander';
 import {
-  createTemporaryTsConfig,
+  buildDocs,
   categorizePackageDirs,
+  createTemporaryTsConfig,
   runApiExtraction,
   runCliExtraction,
-  buildDocs,
 } from './api-extractor';
 import { paths as cliPaths, resolvePackagePaths } from '../../lib/paths';
 import { generateTypeDeclarations } from './generateTypeDeclarations';
@@ -48,6 +48,7 @@ export const buildApiReports = async (paths: string[] = [], opts: Options) => {
   const omitMessages = parseArrayOption(opts.omitMessages);
 
   const isAllPackages = !paths?.length;
+
   const selectedPackageDirs = await resolvePackagePaths({
     paths,
     include: opts.include,
@@ -94,6 +95,7 @@ export const buildApiReports = async (paths: string[] = [], opts: Options) => {
       validateReleaseTags: opts.validateReleaseTags,
     });
   }
+
   if (cliPackageDirs.length > 0) {
     console.log('# Generating package CLI reports');
     await runCliExtraction({
@@ -129,5 +131,10 @@ export const buildApiReports = async (paths: string[] = [], opts: Options) => {
  * // returns []
  */
 function parseArrayOption(value: string | undefined) {
-  return value ? value.split(',').map(s => s.trim()) : [];
+  return value
+    ? value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+    : [];
 }

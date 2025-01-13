@@ -19,12 +19,12 @@ import {
   createBackendPlugin,
   coreServices,
 } from '@backstage/backend-plugin-api';
-import { createRouter } from './service/router';
+import { createRouterInternal } from './service/router';
 
 /**
  * The proxy backend plugin.
  *
- * @alpha
+ * @public
  */
 export const proxyPlugin = createBackendPlugin({
   pluginId: 'proxy',
@@ -37,13 +37,12 @@ export const proxyPlugin = createBackendPlugin({
         httpRouter: coreServices.httpRouter,
       },
       async init({ config, discovery, logger, httpRouter }) {
-        httpRouter.use(
-          await createRouter({
-            config,
-            discovery,
-            logger: loggerToWinstonLogger(logger),
-          }),
-        );
+        await createRouterInternal({
+          config,
+          discovery,
+          logger: loggerToWinstonLogger(logger),
+          httpRouterService: httpRouter,
+        });
       },
     });
   },
